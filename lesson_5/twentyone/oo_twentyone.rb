@@ -51,12 +51,23 @@ class Player < Participant
     end
     self.name = name
   end
+
+  def stay?
+    answer = nil
+    loop do
+      puts "Hit(h) or stay(s)?"
+      answer = gets.downcase
+      break if answer.start_with?("h", "s")
+      puts "Sorry, invalid input."
+    end
+    answer.start_with?("s")
+  end
 end
 
 class Dealer < Participant
   ROBOTS = ['R2D2', 'Hal', 'Chappie', 'Sonny', 'Number 5']
   DEALING_THRESHOLD = 17
-  
+
   def set_name
     self.name = ROBOTS.sample
   end
@@ -97,11 +108,15 @@ end
 
 class Card
   SUITS = %w(Hearts Diamonds Clubs Spades)
-  FACES = %w(2 3 4 5 6 7 8 9 10 J Q K A).zip([2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]).to_h
+
+  FACES = %w(2 3 4 5 6 7 8 9 10 J Q K A).zip(
+    [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]
+  ).to_h
+
   HIDDEN = %w(? ?)
-    
+
   attr_reader :suit, :face, :value
-  
+
   def initialize(suit, face)
     @suit = suit
     @face = face
@@ -118,14 +133,24 @@ class Card
 end
 
 class Game
-  attr_reader :player, :dealer, :deck
-
   def initialize
     clear_screen
     @player = Player.new
     @dealer = Dealer.new
     @deck = Deck.new
   end
+
+  def start
+    clear_screen
+    display_welcome_message
+    continue?
+    main_game
+    display_goodbye_message
+  end
+
+  private
+
+  attr_reader :player, :dealer, :deck
 
   def clear_screen
     system 'clear'
@@ -138,11 +163,18 @@ class Game
     puts "RULES:"
     puts "\t- Numbers 2 through 10 are worth their face value."
     puts "\t- Ace can be worth 1 or 11"
-    puts "\t- ack, Queen and King are each worth 10."
+    puts "\t- Jack, Queen and King are each worth 10."
     puts "\t- Try to get as close to 21 as possible without going over."
+    puts
+  end
+
+  def continue?
+    puts "Press enter to continue.."
+    gets
   end
 
   def display_goodbye_message
+    puts
     puts "Thanks for playing Twenty-One! Goodbye!"
   end
 
@@ -151,9 +183,6 @@ class Game
       player.hit(deck.deal)
       dealer.hit(deck.deal)
     end
-
-    player.calculate_total
-    dealer.calculate_total
   end
 
   def show_initial_cards
@@ -166,34 +195,15 @@ class Game
     clear_screen
     player.show_hand
     dealer.show_hand
+    sleep(1)
   end
 
-  def player_turn
+  def take_turn(party)
     loop do
-      show_initial_cards
-      break if player.busted?
-
-      answer = nil
-      loop do
-        puts "Hit(h) or stay(s)?"
-        answer = gets.downcase
-        break if answer.start_with?("h", "s")
-        puts "Sorry, invalid input."
-      end
-      break if answer.start_with?("s")
-
-      player.hit(deck.deal)
-      player.calculate_total
-    end
-  end
-
-  def dealer_turn
-    loop do
-      show_all_cards
-      sleep(1)
-      break if dealer.stay? || dealer.busted?
-      dealer.hit(deck.deal)
-      dealer.calculate_total
+      party.calculate_total
+      party == player ? show_initial_cards : show_all_cards
+      break if party.busted? || party.stay?
+      party.hit(deck.deal)
     end
   end
 
@@ -240,19 +250,12 @@ class Game
   def main_game
     loop do
       deal_cards
-      player_turn
-      dealer_turn unless player.busted?
+      take_turn(player)
+      take_turn(dealer) unless player.busted?
       show_result
       break unless play_again?
       reset
     end
-  end
-
-  def start
-    clear_screen
-    display_welcome_message
-    main_game
-    display_goodbye_message
   end
 end
 
